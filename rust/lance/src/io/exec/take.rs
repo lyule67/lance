@@ -720,7 +720,8 @@ impl ExecutionPlan for TakeExec {
         partition: Option<usize>,
     ) -> Result<Arc<datafusion::physical_plan::Statistics>> {
         Ok(Arc::new(Statistics {
-            num_rows: self.input.partition_statistics(partition)?.num_rows,
+            num_rows: lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)?
+                .num_rows,
             ..Statistics::new_unknown(self.schema().as_ref())
         }))
     }

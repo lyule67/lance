@@ -3517,7 +3517,7 @@ impl ExecutionPlan for FlatMatchFilterExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> DataFusionResult<Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)
     }
 
     fn metrics(&self) -> Option<MetricsSet> {

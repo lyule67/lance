@@ -1049,7 +1049,7 @@ impl ExecutionPlan for KNNVectorDistanceExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> DataFusionResult<Arc<Statistics>> {
-        let inner_stats = self.input.partition_statistics(partition)?;
+        let inner_stats = lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)?;
         let input_schema = self.input.schema();
         let input_stats_by_name = inner_stats
             .column_statistics
@@ -2464,9 +2464,7 @@ impl ExecutionPlan for ANNIvfSubIndexExec {
             num_rows: Precision::Exact(
                 self.query.k
                     * self.query.refine_factor.unwrap_or(1) as usize
-                    * self
-                        .input
-                        .partition_statistics(partition)?
+                    * lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)?
                         .num_rows
                         .get_value()
                         .unwrap_or(&1),

@@ -307,7 +307,10 @@ impl ExecutionPlan for AddRowAddrExec {
         &self,
         partition: Option<usize>,
     ) -> Result<Arc<datafusion::physical_plan::Statistics>> {
-        let mut stats = Arc::unwrap_or_clone(self.input.partition_statistics(partition)?);
+        let mut stats = Arc::unwrap_or_clone(lance_datafusion::exec::plan_statistics(
+            self.input.as_ref(),
+            partition,
+        )?);
 
         let row_id_col_stats = stats.column_statistics.get(self.rowid_pos).ok_or_else(|| {
             DataFusionError::Internal("RowAddrExec: rowid column stats not found".into())
@@ -557,7 +560,7 @@ impl ExecutionPlan for AddRowOffsetExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> Result<Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)
     }
 
     fn supports_limit_pushdown(&self) -> bool {

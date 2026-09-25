@@ -122,7 +122,7 @@ impl ExecutionPlan for LanceFilterExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> DataFusionResult<Arc<Statistics>> {
-        self.filter.partition_statistics(partition)
+        lance_datafusion::exec::plan_statistics(self.filter.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> datafusion_physical_plan::execution_plan::CardinalityEffect {

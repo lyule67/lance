@@ -14939,7 +14939,7 @@ MergeInsert: on=[id], when_matched=DoNothing, when_not_matched=InsertAll, when_n
     }
 
     fn collect_exact_row_counts(plan: &Arc<dyn ExecutionPlan>, out: &mut Vec<usize>) {
-        if let Ok(stats) = plan.partition_statistics(None)
+        if let Ok(stats) = lance_datafusion::exec::plan_statistics(plan.as_ref(), None)
             && let datafusion::common::stats::Precision::Exact(n) = stats.num_rows
         {
             out.push(n);

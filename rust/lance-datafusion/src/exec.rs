@@ -64,6 +64,26 @@ use crate::{
     },
 };
 
+/// Statistics of `plan` (for `partition`, or overall when `None`), computed by a
+/// DataFusion [`StatisticsContext`] walk of the plan tree.
+///
+/// DataFusion 55 moved its built-in operators (`FilterExec`, `ProjectionExec`,
+/// `CoalesceBatchesExec`, ...) to `ExecutionPlan::statistics_from_inputs`, and
+/// the deprecated `ExecutionPlan::partition_statistics` of those operators now
+/// returns unknown statistics. A node that derives its statistics from a child,
+/// or code that wants the statistics of a whole plan, must ask the context
+/// instead of calling `partition_statistics` on the plan directly.
+///
+/// [`StatisticsContext`]: datafusion::physical_plan::StatisticsContext
+pub fn plan_statistics(
+    plan: &dyn ExecutionPlan,
+    partition: Option<usize>,
+) -> datafusion::common::Result<Arc<Statistics>> {
+    datafusion::physical_plan::StatisticsContext::new().compute(
+        plan,
+        &datafusion::physical_plan::StatisticsArgs::new().with_partition(partition),
+    )
+}
 /// An source execution node created from an existing stream
 ///
 /// It can only be used once, and will return the stream.  After that the node
@@ -1130,7 +1150,7 @@ impl ExecutionPlan for StrictBatchSizeExec {
         &self,
         partition: Option<usize>,
     ) -> datafusion_common::Result<std::sync::Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        plan_statistics(self.input.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> CardinalityEffect {
@@ -1266,7 +1286,7 @@ impl ExecutionPlan for HardCapBatchSizeExec {
         &self,
         partition: Option<usize>,
     ) -> datafusion_common::Result<std::sync::Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        plan_statistics(self.input.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> CardinalityEffect {
