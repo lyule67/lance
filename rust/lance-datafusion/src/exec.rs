@@ -152,6 +152,17 @@ impl DisplayAs for OneShotExec {
 }
 
 impl ExecutionPlan for OneShotExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "OneShotExec"
     }
@@ -239,6 +250,17 @@ impl std::fmt::Debug for TracedExec {
     }
 }
 impl ExecutionPlan for TracedExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "TracedExec"
     }
@@ -467,8 +489,13 @@ fn get_task_context(
     options: &LanceExecutionOptions,
 ) -> Arc<TaskContext> {
     let mut state = session_ctx.state();
-    if let Some(batch_size) = options.batch_size.as_ref() {
-        state.config_mut().options_mut().execution.batch_size = *batch_size;
+    // DataFusion 55 stores batch_size as a non-zero value; a zero batch size keeps
+    // the session default, which is what DataFusion itself does for invalid input.
+    if let Some(batch_size) = options
+        .batch_size
+        .and_then(|b| datafusion_common::config::ConfigNonZeroUsize::try_new(b).ok())
+    {
+        state.config_mut().options_mut().execution.batch_size = batch_size;
     }
 
     state.task_ctx()
@@ -745,14 +772,12 @@ pub async fn analyze_plan_with_context(
 
     let schema = plan.schema();
     // TODO(tsaucer) I chose SUMMARY here but do we also want DEV?
-    let analyze = Arc::new(AnalyzeExec::new(
-        true,
-        true,
-        vec![MetricType::Summary],
-        None,
-        plan,
-        schema,
-    ));
+    let analyze = Arc::new(
+        AnalyzeExec::builder(true, true, plan, schema)
+            .with_metric_types(vec![MetricType::Summary])
+            .with_metric_categories(None)
+            .build(),
+    );
 
     let session_ctx = get_session_context(&options);
     let task_context = task_context.unwrap_or_else(|| get_task_context(&session_ctx, &options));
@@ -1043,6 +1068,17 @@ impl DisplayAs for StrictBatchSizeExec {
 }
 
 impl ExecutionPlan for StrictBatchSizeExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "StrictBatchSizeExec"
     }
@@ -1145,6 +1181,17 @@ impl DisplayAs for HardCapBatchSizeExec {
 }
 
 impl ExecutionPlan for HardCapBatchSizeExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "HardCapBatchSizeExec"
     }

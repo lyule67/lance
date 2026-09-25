@@ -204,7 +204,7 @@ impl Default for LanceContextProvider {
 impl ContextProvider for LanceContextProvider {
     fn get_table_source(
         &self,
-        name: datafusion::sql::TableReference,
+        name: datafusion::common::TableReference,
     ) -> DFResult<Arc<dyn datafusion::logical_expr::TableSource>> {
         Err(datafusion::error::DataFusionError::NotImplemented(format!(
             "Attempt to reference inner table {} not supported",
@@ -1090,6 +1090,7 @@ impl Planner {
             expr,
             df_schema.as_ref(),
             &Default::default(),
+            &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default(),
         )?)
     }
 
