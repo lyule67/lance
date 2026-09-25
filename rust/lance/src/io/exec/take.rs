@@ -616,6 +616,21 @@ impl TakeExec {
 }
 
 impl ExecutionPlan for TakeExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "TakeExec"
     }
@@ -705,7 +720,8 @@ impl ExecutionPlan for TakeExec {
         partition: Option<usize>,
     ) -> Result<Arc<datafusion::physical_plan::Statistics>> {
         Ok(Arc::new(Statistics {
-            num_rows: self.input.partition_statistics(partition)?.num_rows,
+            num_rows: lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)?
+                .num_rows,
             ..Statistics::new_unknown(self.schema().as_ref())
         }))
     }

@@ -2524,11 +2524,8 @@ impl MergeInsertJob {
 
         // Execute the plan
         // Assert that we have exactly one partition since we're designed for single-partition execution
-        let partition_count = match plan.properties().output_partitioning() {
-            datafusion_physical_expr::Partitioning::RoundRobinBatch(n) => *n,
-            datafusion_physical_expr::Partitioning::Hash(_, n) => *n,
-            datafusion_physical_expr::Partitioning::UnknownPartitioning(n) => *n,
-        };
+        // DataFusion 55 adds Partitioning::Range; partition_count() covers every variant.
+        let partition_count = plan.properties().output_partitioning().partition_count();
 
         if partition_count != 1 {
             return Err(Error::invalid_input(format!(
@@ -14942,7 +14939,7 @@ MergeInsert: on=[id], when_matched=DoNothing, when_not_matched=InsertAll, when_n
     }
 
     fn collect_exact_row_counts(plan: &Arc<dyn ExecutionPlan>, out: &mut Vec<usize>) {
-        if let Ok(stats) = plan.partition_statistics(None)
+        if let Ok(stats) = lance_datafusion::exec::plan_statistics(plan.as_ref(), None)
             && let datafusion::common::stats::Precision::Exact(n) = stats.num_rows
         {
             out.push(n);

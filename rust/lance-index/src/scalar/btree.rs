@@ -1697,6 +1697,8 @@ impl BTreeIndex {
             &query.to_expr(BTREE_VALUES_COLUMN.to_string()),
             &df_schema,
             &ExecutionProps::default(),
+            &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default(
+            ),
         )?)
     }
 
