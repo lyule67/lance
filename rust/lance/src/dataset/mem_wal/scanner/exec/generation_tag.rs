@@ -99,7 +99,9 @@ impl ExecutionPlan for MemtableGenTagExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this

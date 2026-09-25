@@ -156,7 +156,9 @@ impl ExecutionPlan for OneShotExec {
         &self,
         _f: &mut dyn FnMut(
             &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
-        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
         // This node holds no physical expressions of its own (children are
         // visited separately by the caller).
@@ -254,7 +256,9 @@ impl ExecutionPlan for TracedExec {
         &self,
         _f: &mut dyn FnMut(
             &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
-        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
         // This node holds no physical expressions of its own (children are
         // visited separately by the caller).
@@ -1072,7 +1076,9 @@ impl ExecutionPlan for StrictBatchSizeExec {
         &self,
         _f: &mut dyn FnMut(
             &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
-        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
         // This node holds no physical expressions of its own (children are
         // visited separately by the caller).
@@ -1185,7 +1191,9 @@ impl ExecutionPlan for HardCapBatchSizeExec {
         &self,
         _f: &mut dyn FnMut(
             &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
-        ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
         // This node holds no physical expressions of its own (children are
         // visited separately by the caller).
@@ -1446,6 +1454,17 @@ mod tests {
     }
 
     impl ExecutionPlan for NeedsExtensionExec {
+        fn apply_expressions(
+            &self,
+            _f: &mut dyn FnMut(
+                &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+            ) -> datafusion::common::Result<
+                datafusion::common::tree_node::TreeNodeRecursion,
+            >,
+        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+            Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+        }
+
         fn name(&self) -> &str {
             "NeedsExtensionExec"
         }

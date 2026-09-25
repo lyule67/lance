@@ -1090,7 +1090,8 @@ impl Planner {
             expr,
             df_schema.as_ref(),
             &Default::default(),
-            &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default(),
+            &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default(
+            ),
         )?)
     }
 

@@ -220,7 +220,9 @@ impl ExecutionPlan for FtsDocumentExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -1031,7 +1033,9 @@ impl ExecutionPlan for HybridCompoundQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -1320,7 +1324,9 @@ impl ExecutionPlan for CompoundQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -1860,7 +1866,9 @@ impl ExecutionPlan for CrossColumnCompoundQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -2828,7 +2836,9 @@ impl ExecutionPlan for MatchQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -3432,7 +3442,9 @@ impl ExecutionPlan for FlatMatchFilterExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -3716,7 +3728,9 @@ impl ExecutionPlan for FlatMatchQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -4181,7 +4195,9 @@ impl ExecutionPlan for PhraseQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -4469,7 +4485,9 @@ impl ExecutionPlan for BoostQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
@@ -4754,7 +4772,9 @@ impl ExecutionPlan for BooleanQueryExec {
         &self,
         _f: &mut dyn FnMut(
             &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
     ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
         // No physical expressions of its own (children are visited by the caller).
         // DataFusion 55 uses this to see whether a dynamic filter reached this
