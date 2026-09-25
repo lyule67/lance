@@ -2322,7 +2322,7 @@ impl Scanner {
             // Convert logical to physical expression
             let df_schema = Arc::new(DFSchema::try_from(arrow_schema.clone())?);
             let execution_props = ExecutionProps::new().with_query_execution_start_time(Utc::now());
-            create_physical_expr(&expr, &df_schema, &execution_props).map_err(|e| {
+            create_physical_expr(&expr, &df_schema, &execution_props, &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default()).map_err(|e| {
                 Error::internal(format!(
                     "Failed to create physical expression for nested field '{}': {}",
                     column_name, e
@@ -2662,7 +2662,7 @@ impl Scanner {
             .map(|expr| {
                 let name = expr.schema_name().to_string();
                 let physical_expr =
-                    create_physical_expr(expr, &df_schema, &ExecutionProps::default())?;
+                    create_physical_expr(expr, &df_schema, &ExecutionProps::default(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok((physical_expr, name))
             })
             .collect::<Result<_>>()?;
@@ -6668,7 +6668,7 @@ impl Scanner {
                 let logical = col(DIST_COL).gt_eq(lit(v));
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok::<(Expr, Arc<dyn PhysicalExpr>), _>((logical, physical))
             })
             .transpose()?;
@@ -6679,7 +6679,7 @@ impl Scanner {
                 let logical = col(DIST_COL).lt(lit(v));
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok::<(Expr, Arc<dyn PhysicalExpr>), _>((logical, physical))
             })
             .transpose()?;
@@ -6689,7 +6689,7 @@ impl Scanner {
                 let logical = llog.and(ulog);
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Some((logical, physical))
             }
             (Some((llog, lphys)), None) => Some((llog, lphys)),
