@@ -35,6 +35,7 @@ use lance_datafusion::{
     utils::{
         ExecutionPlanMetricsSetExt, SCALAR_INDEX_SEARCH_TIME_METRIC, SCALAR_INDEX_SER_TIME_METRIC,
     },
+    with_both_zero_encodings,
 };
 use lance_index::{
     metrics::MetricsCollector,
@@ -613,7 +614,15 @@ impl MapIndexExec {
     }
 
     /// Build the `IsIn` query for one join key against its matching index.
+    ///
+    /// A floating point zero key probes for both of its encodings. Scalar indices
+    /// key on the bit pattern, but the join this probe feeds (DataFusion 55's hash
+    /// join in `merge_insert`) matches `-0.0` to `+0.0`, as does the same merge
+    /// run without an index. Probing only the source's encoding would leave the
+    /// other zero row out of the candidate set, so whether a row matched would
+    /// depend on whether an index exists.
     fn build_key_query(lookup: &IndexLookup, values: Vec<ScalarValue>) -> ScalarIndexExpr {
+        let values = with_both_zero_encodings(values);
         ScalarIndexExpr::Query(ScalarIndexSearch {
             column: lookup.column.clone(),
             index_name: lookup.index_name.clone(),

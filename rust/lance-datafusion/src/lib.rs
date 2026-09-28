@@ -23,6 +23,7 @@ pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/lance.datafusion.rs"));
 }
 mod signed_zero;
+pub use signed_zero::with_both_zero_encodings;
 pub mod spill;
 pub mod sql;
 #[cfg(feature = "substrait")]
