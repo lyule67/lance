@@ -3216,6 +3216,21 @@ impl DisplayAs for FilteredReadExec {
 }
 
 impl ExecutionPlan for FilteredReadExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "FilteredReadExec"
     }
@@ -3249,7 +3264,8 @@ impl ExecutionPlan for FilteredReadExec {
         if let RowSelector::RowStream(source) = &self.input {
             // At most one output row per input row
             return Ok(Arc::new(Statistics {
-                num_rows: source.plan.partition_statistics(partition)?.num_rows,
+                num_rows: lance_datafusion::exec::plan_statistics(source.plan.as_ref(), partition)?
+                    .num_rows,
                 ..Statistics::new_unknown(self.schema().as_ref())
             }));
         }
@@ -3329,7 +3345,10 @@ impl ExecutionPlan for FilteredReadExec {
             None,
         )?);
         let df_filter_exec = FilterExec::try_new(physical_filter, mock_input)?;
-        let mut df_stats = Arc::unwrap_or_clone(df_filter_exec.partition_statistics(partition)?);
+        let mut df_stats = Arc::unwrap_or_clone(lance_datafusion::exec::plan_statistics(
+            &df_filter_exec,
+            partition,
+        )?);
 
         // If we have an after-filter range, we should apply it to the stats (the before-filter range
         // is applied in the mock input)

@@ -146,6 +146,42 @@ fn zero_encodings(value: &ScalarValue) -> Option<(ScalarValue, ScalarValue)> {
     }
 }
 
+/// Complete a list of equality probe values so that a floating point zero names
+/// both of its encodings.
+///
+/// This is the key-lookup counterpart of the `x IN (0, ..)` row in the table on
+/// [`rewrite_signed_zero_comparisons`]: a scalar index keys on the bit pattern,
+/// so an `IsIn` probe built from raw key values (`merge_insert`'s indexed join)
+/// finds only the `+0.0` rows for a `+0.0` key, while the hash join the same
+/// merge takes without an index matches both (DataFusion 55 hashes and compares
+/// join keys with `-0.0 == +0.0`). The encodings are appended after `values`, and
+/// only the ones that are not already present, so the list stays deduplicated if
+/// it was. The caller's join still decides the match; this only widens the
+/// candidate set to what that join can accept.
+///
+/// NaN is left alone: both the index and the join compare NaN by bit pattern.
+pub fn with_both_zero_encodings(mut values: Vec<ScalarValue>) -> Vec<ScalarValue> {
+    let mut pair = None;
+    let (mut has_negative, mut has_positive) = (false, false);
+    for value in &values {
+        if let Some((negative, positive)) = zero_encodings(value) {
+            // `ScalarValue`'s `PartialEq` compares floats by bit pattern.
+            has_negative |= *value == negative;
+            has_positive |= *value == positive;
+            pair.get_or_insert((negative, positive));
+        }
+    }
+    if let Some((negative, positive)) = pair {
+        if !has_negative {
+            values.push(negative);
+        }
+        if !has_positive {
+            values.push(positive);
+        }
+    }
+    values
+}
+
 /// Collect the terms of an `AND`/`OR` chain, in order, ignoring nesting.
 fn flatten_chain<'a>(expr: &'a Expr, op: Operator, terms: &mut Vec<&'a Expr>) {
     if let Expr::BinaryExpr(BinaryExpr {
@@ -706,6 +742,58 @@ mod tests {
             optimized,
             Expr::Literal(ScalarValue::Boolean(Some(expected)), None),
             "filter: {filter}"
+        );
+    }
+    #[test]
+    fn probe_values_name_both_zero_encodings() {
+        let bits = |values: Vec<ScalarValue>| -> Vec<u64> {
+            values
+                .into_iter()
+                .map(|v| match v {
+                    Float64(Some(f)) => f.to_bits(),
+                    other => panic!("unexpected {other:?}"),
+                })
+                .collect()
+        };
+        let (neg, pos) = ((-0.0f64).to_bits(), 0.0f64.to_bits());
+        // Each zero gains the other encoding, appended.
+        assert_eq!(
+            bits(with_both_zero_encodings(vec![Float64(Some(0.0))])),
+            vec![pos, neg]
+        );
+        assert_eq!(
+            bits(with_both_zero_encodings(vec![Float64(Some(-0.0))])),
+            vec![neg, pos]
+        );
+        // Both present, or no zero: unchanged.
+        assert_eq!(
+            bits(with_both_zero_encodings(vec![
+                Float64(Some(-0.0)),
+                Float64(Some(1.0)),
+                Float64(Some(0.0)),
+            ])),
+            vec![neg, 1.0f64.to_bits(), pos]
+        );
+        let nan = f64::from_bits(0x7ff8_0000_0000_0001);
+        assert_eq!(
+            bits(with_both_zero_encodings(vec![
+                Float64(Some(nan)),
+                Float64(Some(2.0))
+            ])),
+            vec![nan.to_bits(), 2.0f64.to_bits()]
+        );
+        // Other widths and non-float types.
+        assert_eq!(
+            with_both_zero_encodings(vec![Float32(Some(0.0))]),
+            vec![Float32(Some(0.0)), Float32(Some(-0.0))]
+        );
+        assert_eq!(
+            with_both_zero_encodings(vec![Float16(Some(f16::NEG_ZERO))]),
+            vec![Float16(Some(f16::NEG_ZERO)), Float16(Some(f16::ZERO))]
+        );
+        assert_eq!(
+            with_both_zero_encodings(vec![ScalarValue::Int32(Some(0)), Float64(None)]),
+            vec![ScalarValue::Int32(Some(0)), Float64(None)]
         );
     }
 }

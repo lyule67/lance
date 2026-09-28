@@ -64,6 +64,26 @@ use crate::{
     },
 };
 
+/// Statistics of `plan` (for `partition`, or overall when `None`), computed by a
+/// DataFusion [`StatisticsContext`] walk of the plan tree.
+///
+/// DataFusion 55 moved its built-in operators (`FilterExec`, `ProjectionExec`,
+/// `CoalesceBatchesExec`, ...) to `ExecutionPlan::statistics_from_inputs`, and
+/// the deprecated `ExecutionPlan::partition_statistics` of those operators now
+/// returns unknown statistics. A node that derives its statistics from a child,
+/// or code that wants the statistics of a whole plan, must ask the context
+/// instead of calling `partition_statistics` on the plan directly.
+///
+/// [`StatisticsContext`]: datafusion::physical_plan::StatisticsContext
+pub fn plan_statistics(
+    plan: &dyn ExecutionPlan,
+    partition: Option<usize>,
+) -> datafusion::common::Result<Arc<Statistics>> {
+    datafusion::physical_plan::StatisticsContext::new().compute(
+        plan,
+        &datafusion::physical_plan::StatisticsArgs::new().with_partition(partition),
+    )
+}
 /// An source execution node created from an existing stream
 ///
 /// It can only be used once, and will return the stream.  After that the node
@@ -152,6 +172,19 @@ impl DisplayAs for OneShotExec {
 }
 
 impl ExecutionPlan for OneShotExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "OneShotExec"
     }
@@ -239,6 +272,19 @@ impl std::fmt::Debug for TracedExec {
     }
 }
 impl ExecutionPlan for TracedExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "TracedExec"
     }
@@ -467,8 +513,13 @@ fn get_task_context(
     options: &LanceExecutionOptions,
 ) -> Arc<TaskContext> {
     let mut state = session_ctx.state();
-    if let Some(batch_size) = options.batch_size.as_ref() {
-        state.config_mut().options_mut().execution.batch_size = *batch_size;
+    // DataFusion 55 stores batch_size as a non-zero value; a zero batch size keeps
+    // the session default, which is what DataFusion itself does for invalid input.
+    if let Some(batch_size) = options
+        .batch_size
+        .and_then(|b| datafusion_common::config::ConfigNonZeroUsize::try_new(b).ok())
+    {
+        state.config_mut().options_mut().execution.batch_size = batch_size;
     }
 
     state.task_ctx()
@@ -745,14 +796,12 @@ pub async fn analyze_plan_with_context(
 
     let schema = plan.schema();
     // TODO(tsaucer) I chose SUMMARY here but do we also want DEV?
-    let analyze = Arc::new(AnalyzeExec::new(
-        true,
-        true,
-        vec![MetricType::Summary],
-        None,
-        plan,
-        schema,
-    ));
+    let analyze = Arc::new(
+        AnalyzeExec::builder(true, true, plan, schema)
+            .with_metric_types(vec![MetricType::Summary])
+            .with_metric_categories(None)
+            .build(),
+    );
 
     let session_ctx = get_session_context(&options);
     let task_context = task_context.unwrap_or_else(|| get_task_context(&session_ctx, &options));
@@ -1043,6 +1092,19 @@ impl DisplayAs for StrictBatchSizeExec {
 }
 
 impl ExecutionPlan for StrictBatchSizeExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "StrictBatchSizeExec"
     }
@@ -1088,7 +1150,7 @@ impl ExecutionPlan for StrictBatchSizeExec {
         &self,
         partition: Option<usize>,
     ) -> datafusion_common::Result<std::sync::Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        plan_statistics(self.input.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> CardinalityEffect {
@@ -1145,6 +1207,19 @@ impl DisplayAs for HardCapBatchSizeExec {
 }
 
 impl ExecutionPlan for HardCapBatchSizeExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &Arc<dyn datafusion_physical_expr::PhysicalExpr>,
+        ) -> datafusion_common::Result<
+            datafusion_common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion_common::Result<datafusion_common::tree_node::TreeNodeRecursion> {
+        // This node holds no physical expressions of its own (children are
+        // visited separately by the caller).
+        Ok(datafusion_common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "HardCapBatchSizeExec"
     }
@@ -1211,7 +1286,7 @@ impl ExecutionPlan for HardCapBatchSizeExec {
         &self,
         partition: Option<usize>,
     ) -> datafusion_common::Result<std::sync::Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        plan_statistics(self.input.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> CardinalityEffect {
@@ -1399,6 +1474,17 @@ mod tests {
     }
 
     impl ExecutionPlan for NeedsExtensionExec {
+        fn apply_expressions(
+            &self,
+            _f: &mut dyn FnMut(
+                &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+            ) -> datafusion::common::Result<
+                datafusion::common::tree_node::TreeNodeRecursion,
+            >,
+        ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+            Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+        }
+
         fn name(&self) -> &str {
             "NeedsExtensionExec"
         }

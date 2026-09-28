@@ -276,7 +276,8 @@ impl ExtensionPlanner for MergeInsertPlanner {
         node: &dyn UserDefinedLogicalNode,
         logical_inputs: &[&LogicalPlan],
         physical_inputs: &[Arc<dyn ExecutionPlan>],
-        _session_state: &SessionState,
+        _session: &dyn datafusion::catalog::Session,
+        _planning_ctx: &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext,
     ) -> DFResult<Option<Arc<dyn ExecutionPlan>>> {
         Ok(
             if let Some(write_node) = node.as_any().downcast_ref::<MergeInsertWriteNode>() {

@@ -242,6 +242,21 @@ impl DisplayAs for AddRowAddrExec {
 }
 
 impl ExecutionPlan for AddRowAddrExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "AddRowAddrExec"
     }
@@ -292,7 +307,10 @@ impl ExecutionPlan for AddRowAddrExec {
         &self,
         partition: Option<usize>,
     ) -> Result<Arc<datafusion::physical_plan::Statistics>> {
-        let mut stats = Arc::unwrap_or_clone(self.input.partition_statistics(partition)?);
+        let mut stats = Arc::unwrap_or_clone(lance_datafusion::exec::plan_statistics(
+            self.input.as_ref(),
+            partition,
+        )?);
 
         let row_id_col_stats = stats.column_statistics.get(self.rowid_pos).ok_or_else(|| {
             DataFusionError::Internal("RowAddrExec: rowid column stats not found".into())
@@ -506,6 +524,21 @@ impl DisplayAs for AddRowOffsetExec {
 }
 
 impl ExecutionPlan for AddRowOffsetExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "AddRowOffsetExec"
     }
@@ -527,7 +560,7 @@ impl ExecutionPlan for AddRowOffsetExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> Result<Arc<Statistics>> {
-        self.input.partition_statistics(partition)
+        lance_datafusion::exec::plan_statistics(self.input.as_ref(), partition)
     }
 
     fn supports_limit_pushdown(&self) -> bool {

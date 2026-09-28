@@ -105,6 +105,10 @@ pprof.workspace = true
 lzma-sys = { version = "0.1" }
 
 [dev-dependencies]
+# hydra-arrow59: `#[tokio::test(start_paused = true)]` needs tokio/test-util, which
+# upstream only receives through the aws feature chain; name it so the tests
+# also build with --no-default-features.
+tokio = { workspace = true, features = ["test-util"] }
 lance-test-macros = { workspace = true }
 lance-datagen = { workspace = true }
 lance-datafusion = { workspace = true, features = ["datagen"] }

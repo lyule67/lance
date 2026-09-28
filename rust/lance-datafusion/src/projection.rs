@@ -414,6 +414,7 @@ impl ProjectionPlan {
                         &expr,
                         physical_df_schema.as_ref(),
                         &Default::default(),
+                        &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default(),
                     )?,
                     output_column.name.clone(),
                 ))

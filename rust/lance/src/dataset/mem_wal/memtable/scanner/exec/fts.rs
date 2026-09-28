@@ -627,6 +627,18 @@ impl DisplayAs for FtsIndexExec {
 }
 
 impl ExecutionPlan for FtsIndexExec {
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // Report the pushed-down filter so DataFusion 55 can see dynamic filters here.
+        datafusion::physical_plan::apply_expression_roots(self.filter.iter(), f)
+    }
+
     fn name(&self) -> &str {
         "FtsIndexExec"
     }

@@ -35,6 +35,7 @@ use lance_datafusion::{
     utils::{
         ExecutionPlanMetricsSetExt, SCALAR_INDEX_SEARCH_TIME_METRIC, SCALAR_INDEX_SER_TIME_METRIC,
     },
+    with_both_zero_encodings,
 };
 use lance_index::{
     metrics::MetricsCollector,
@@ -225,6 +226,21 @@ impl ScalarIndexExec {
 }
 
 impl ExecutionPlan for ScalarIndexExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "ScalarIndexExec"
     }
@@ -598,7 +614,15 @@ impl MapIndexExec {
     }
 
     /// Build the `IsIn` query for one join key against its matching index.
+    ///
+    /// A floating point zero key probes for both of its encodings. Scalar indices
+    /// key on the bit pattern, but the join this probe feeds (DataFusion 55's hash
+    /// join in `merge_insert`) matches `-0.0` to `+0.0`, as does the same merge
+    /// run without an index. Probing only the source's encoding would leave the
+    /// other zero row out of the candidate set, so whether a row matched would
+    /// depend on whether an index exists.
     fn build_key_query(lookup: &IndexLookup, values: Vec<ScalarValue>) -> ScalarIndexExpr {
+        let values = with_both_zero_encodings(values);
         ScalarIndexExpr::Query(ScalarIndexSearch {
             column: lookup.column.clone(),
             index_name: lookup.index_name.clone(),
@@ -719,6 +743,21 @@ impl MapIndexExec {
 }
 
 impl ExecutionPlan for MapIndexExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "MapIndexExec"
     }
@@ -1022,6 +1061,21 @@ async fn retain_fragments(
 }
 
 impl ExecutionPlan for MaterializeIndexExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "MaterializeIndexExec"
     }

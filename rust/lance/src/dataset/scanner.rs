@@ -2322,7 +2322,7 @@ impl Scanner {
             // Convert logical to physical expression
             let df_schema = Arc::new(DFSchema::try_from(arrow_schema.clone())?);
             let execution_props = ExecutionProps::new().with_query_execution_start_time(Utc::now());
-            create_physical_expr(&expr, &df_schema, &execution_props).map_err(|e| {
+            create_physical_expr(&expr, &df_schema, &execution_props, &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default()).map_err(|e| {
                 Error::internal(format!(
                     "Failed to create physical expression for nested field '{}': {}",
                     column_name, e
@@ -2662,7 +2662,7 @@ impl Scanner {
             .map(|expr| {
                 let name = expr.schema_name().to_string();
                 let physical_expr =
-                    create_physical_expr(expr, &df_schema, &ExecutionProps::default())?;
+                    create_physical_expr(expr, &df_schema, &ExecutionProps::default(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok((physical_expr, name))
             })
             .collect::<Result<_>>()?;
@@ -6668,7 +6668,7 @@ impl Scanner {
                 let logical = col(DIST_COL).gt_eq(lit(v));
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok::<(Expr, Arc<dyn PhysicalExpr>), _>((logical, physical))
             })
             .transpose()?;
@@ -6679,7 +6679,7 @@ impl Scanner {
                 let logical = col(DIST_COL).lt(lit(v));
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Ok::<(Expr, Arc<dyn PhysicalExpr>), _>((logical, physical))
             })
             .transpose()?;
@@ -6689,7 +6689,7 @@ impl Scanner {
                 let logical = llog.and(ulog);
                 let schema = flat_dist.schema();
                 let df_schema = DFSchema::try_from(schema)?;
-                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new())?;
+                let physical = create_physical_expr(&logical, &df_schema, &ExecutionProps::new(), &datafusion::logical_expr::physical_planning_context::PhysicalPlanningContext::default())?;
                 Some((logical, physical))
             }
             (Some((llog, lphys)), None) => Some((llog, lphys)),
@@ -15366,11 +15366,15 @@ full_filter=name LIKE Utf8(\"test%2\"), refine_filter=name LIKE Utf8(\"test%2\")
         .await?;
 
         log::info!("Test case: Combined Scalar/non-scalar filtered read with empty projection");
+        // hydra-arrow59: DataFusion 55's `UnionExec::try_new` coerces every input to
+        // the union schema and wraps an input whose schema differs in a
+        // `ProjectionExec`; here that is an identity projection over the index branch.
         let expected = if data_storage_version == LanceFileVersion::Legacy {
             "ProjectionExec: expr=[_rowaddr@0 as _rowaddr]
   UnionExec
-    AddRowAddrExec
-      MaterializeIndex: query=[i > 10]@i_idx(BTree)
+    ProjectionExec: expr=[_rowaddr@0 as _rowaddr, _rowid@1 as _rowid]
+      AddRowAddrExec
+        MaterializeIndex: query=[i > 10]@i_idx(BTree)
     ProjectionExec: expr=[_rowaddr@2 as _rowaddr, _rowid@1 as _rowid]
       FilterExec: i@0 > 10
         LanceScan: uri=..., projection=[i], row_id=true, row_addr=true, ordered=false, range=None"
@@ -15503,7 +15507,8 @@ full_filter=name LIKE Utf8(\"test%2\"), refine_filter=name LIKE Utf8(\"test%2\")
       MatchQuery: column=s, query=[hello]
         CoalescePartitionsExec
           UnionExec
-            MaterializeIndex: query=[i > 10]@i_idx(BTree)
+            ProjectionExec: expr=[_rowid@0 as _rowid]
+              MaterializeIndex: query=[i > 10]@i_idx(BTree)
             ProjectionExec: expr=[_rowid@1 as _rowid]
               FilterExec: i@0 > 10
                 LanceScan: uri=..., projection=[i], row_id=true, row_addr=false, ordered=false, range=None"#
@@ -15604,7 +15609,8 @@ full_filter=name LIKE Utf8(\"test%2\"), refine_filter=name LIKE Utf8(\"test%2\")
             MatchQuery: column=s, query=[hello]
               CoalescePartitionsExec
                 UnionExec
-                  MaterializeIndex: query=[i > 10]@i_idx(BTree)
+                  ProjectionExec: expr=[_rowid@0 as _rowid]
+                    MaterializeIndex: query=[i > 10]@i_idx(BTree)
                   ProjectionExec: expr=[_rowid@1 as _rowid]
                     FilterExec: i@0 > 10
                       LanceScan: uri=..., projection=[i], row_id=true, row_addr=false, ordered=false, range=None

@@ -203,6 +203,50 @@ impl PhysicalOptimizerRule for SimplifyProjection {
     }
 }
 
+/// Distribution enforcement alone, as DataFusion 54's `EnforceDistribution` rule did.
+///
+/// DataFusion 55 folded `EnforceDistribution` and `EnforceSorting` into one
+/// `EnsureRequirements` rule. Lance only ever ran the distribution half, so this
+/// runs the same two phases `EnsureRequirements` uses for distribution
+/// (join-key reordering, then `ensure_distribution` bottom-up) and nothing else.
+#[derive(Debug, Default)]
+pub struct EnforceDistributionOnly;
+
+impl datafusion::physical_optimizer::PhysicalOptimizerRule for EnforceDistributionOnly {
+    fn optimize(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        config: &datafusion::config::ConfigOptions,
+    ) -> datafusion::common::Result<Arc<dyn ExecutionPlan>> {
+        use datafusion::common::tree_node::{Transformed, TransformedResult, TreeNode};
+        use datafusion::physical_optimizer::enforce_distribution::{
+            DistributionContext, PlanWithKeyRequirements, adjust_input_keys_ordering,
+            ensure_distribution, reorder_join_keys_to_inputs,
+        };
+        let plan = if config.optimizer.top_down_join_key_reordering {
+            PlanWithKeyRequirements::new_default(plan)
+                .transform_down(adjust_input_keys_ordering)
+                .data()?
+                .plan
+        } else {
+            plan.transform_up(|p| Ok(Transformed::yes(reorder_join_keys_to_inputs(p)?)))
+                .data()?
+        };
+        Ok(DistributionContext::new_default(plan)
+            .transform_up(|ctx| ensure_distribution(ctx, config))
+            .data()?
+            .plan)
+    }
+
+    fn name(&self) -> &str {
+        "EnforceDistribution"
+    }
+
+    fn schema_check(&self) -> bool {
+        true
+    }
+}
+
 pub fn get_physical_optimizer() -> PhysicalOptimizer {
     PhysicalOptimizer::with_rules(vec![
         // Rewrite `COUNT(*)`-style aggregates into CountFromMaskExec so they
@@ -215,7 +259,7 @@ pub fn get_physical_optimizer() -> PhysicalOptimizer {
         Arc::new(datafusion::physical_optimizer::limit_pushdown::LimitPushdown::new()),
         // Insert exchange nodes (RepartitionExec, CoalescePartitionsExec) where needed
         // to satisfy distribution requirements as exec nodes migrate to multi-partition output.
-        Arc::new(datafusion::physical_optimizer::enforce_distribution::EnforceDistribution::new()),
+        Arc::new(EnforceDistributionOnly),
     ])
 }
 

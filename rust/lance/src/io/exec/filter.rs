@@ -62,6 +62,21 @@ impl LanceFilterExec {
 }
 
 impl ExecutionPlan for LanceFilterExec {
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        // No physical expressions of its own (children are visited by the caller).
+        // DataFusion 55 uses this to see whether a dynamic filter reached this
+        // subtree; reporting none is conservative (the filter is disabled, never
+        // mis-applied).
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+    }
+
     fn name(&self) -> &str {
         "LanceFilterExec"
     }
@@ -107,7 +122,7 @@ impl ExecutionPlan for LanceFilterExec {
     }
 
     fn partition_statistics(&self, partition: Option<usize>) -> DataFusionResult<Arc<Statistics>> {
-        self.filter.partition_statistics(partition)
+        lance_datafusion::exec::plan_statistics(self.filter.as_ref(), partition)
     }
 
     fn cardinality_effect(&self) -> datafusion_physical_plan::execution_plan::CardinalityEffect {
